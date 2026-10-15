@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ms"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jom Sate Kajang!</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Montserrat:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#120a06;--ember:#ff6b2c;--gold:#ffc83d;--cream:#fff3dc;--green:#3ddc84;--red:#ff4757;--f1:'Montserrat',sans-serif;--f2:'DM Serif Display',serif}
+*{box-sizing:border-box;margin:0;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{height:100%;background:radial-gradient(circle at 50% 30%,#3a1d10,var(--bg));font-family:var(--f1);color:var(--cream);overflow:hidden}
+#app{--h:min(100dvh,calc(100vw*1.714));position:relative;height:var(--h);width:calc(var(--h)/1.714);margin:0 auto;box-shadow:0 0 60px #000}
+canvas{width:100%;height:100%;display:block}
+#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(12,6,3,.55);backdrop-filter:blur(4px);padding:18px}
+#ov.show{display:flex}
+#ov.map{background:#173226;backdrop-filter:none;padding:0;align-items:stretch}
+.card{text-align:center;background:linear-gradient(160deg,#3b1f12,#1c0e08);border:2px solid var(--ember);border-radius:24px;padding:26px 22px;max-width:340px;box-shadow:0 0 40px rgba(255,107,44,.45);animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+.card small{color:var(--gold);font-weight:700;font-size:11px;letter-spacing:.5px}
+.card h1{font:400 40px/1.05 var(--f2);color:var(--gold);margin:6px 0 10px}
+.card h2{font:400 30px var(--f2);color:var(--gold);margin:4px 0 8px}
+.card p{font-size:14px;line-height:1.5;margin-bottom:16px;font-weight:500}
+.card p.s{font-size:12px;opacity:.75}
+.em{font-size:68px;animation:bob 1.4s ease-in-out infinite}
+button{font:800 16px var(--f1);color:#2a1006;background:linear-gradient(180deg,var(--gold),var(--ember));border:0;border-radius:99px;padding:13px 32px;cursor:pointer;box-shadow:0 5px 0 #a8400f,0 8px 20px rgba(255,107,44,.5);touch-action:manipulation}
+button:active{transform:translateY(4px);box-shadow:0 1px 0 #a8400f}
+.mw{position:relative;width:100%}.mw svg{width:100%;height:100%}
+.bn{position:absolute;left:14px;right:14px;bottom:22px;text-align:center;background:rgba(18,10,6,.88);border:2px solid var(--ember);border-radius:20px;padding:14px;font-weight:700;font-size:14px;animation:pop .4s}
+.bn button{margin-top:10px}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+@keyframes bob{50%{transform:translateY(-10px) rotate(6deg)}}
+</style></head><body>
+<div id="app"><canvas id="c"></canvas><div id="ov"></div></div>
+<script>
+const $=id=>document.getElementById(id),C=$('c'),x=C.getContext('2d'),W=420,H=720,ov=$('ov');
+C.width=W;C.height=H;
+const NAMES=['UNISEL, Bestari Jaya','Shah Alam','Puchong','Kajang'];
+const PT=[[70,630],[320,500],[100,330],[300,130]];
+let mode='menu',lvl=0,G={},ptr={x:W/2,y:480,down:false},parts=[],fl=[],shake=0,T=0,last=0,cf;
+const R=(a,b)=>a+Math.random()*(b-a),L=(a,b,k)=>a+(b-a)*k,K={};
+const pos=e=>{const r=C.getBoundingClientRect();ptr.x=(e.clientX-r.left)/r.width*W;ptr.y=(e.clientY-r.top)/r.height*H};
+C.onpointerdown=e=>{pos(e);ptr.down=true;if(mode=='play'&&lvl==2)down3()};
+onpointermove=pos;onpointerup=()=>{ptr.down=false;G.drag=-1};
+onkeydown=e=>K[e.key]=1;onkeyup=e=>K[e.key]=0;
+/* helpers */
+function burst(px,py,n,c,sp=200){for(let i=0;i<n;i++){const a=R(0,6.28),s=R(.2,1)*sp;parts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,l:R(.4,.9),c,s:R(2,5)})}}
+const ft=(s,px,py,c)=>fl.push({s,x:px,y:py,l:1,c});
+function tx(s,px,py,sz,c='#fff3dc',al='center',f='Montserrat'){x.font=`800 ${sz}px ${f},sans-serif`;x.textAlign=al;x.textBaseline='middle';x.fillStyle=c;x.fillText(s,px,py)}
+function em(s,px,py,sz,rot=0,sx=1,sy=1){x.save();x.translate(px,py);x.rotate(rot);x.scale(sx,sy);x.font=sz+'px serif';x.textAlign='center';x.textBaseline='middle';x.fillText(s,0,0);x.restore()}
+function bg(a,b){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,a);g.addColorStop(1,b);x.fillStyle=g;x.fillRect(0,0,W,H)}
+function hud(s){x.fillStyle='rgba(0,0,0,.4)';x.fillRect(0,0,W,74);tx(`Checkpoint ${lvl+1}/3 · ${NAMES[lvl]} → ${NAMES[lvl+1]}`,W/2,20,11,'#ffc83d');tx(s,W/2,50,20)}
+function screen(h,cls=''){ov.innerHTML=h;ov.className='show '+cls}
+const hide=()=>ov.className='';
+/* menus */
+function title(){clearInterval(cf);mode='menu';screen(`<div class=card><div class=em>🍢</div><h1>Jom Sate Kajang!</h1><p>Drive from <b>UNISEL</b> to the legendary <b>Sate Kajang Haji Samuri</b>. Clear 3 checkpoints to arrive.</p><button onclick="intro(0)">Mula Perjalanan</button></div>`)}
+const LV=[{n:'Cucuk Cucuk Sate',e:'🥩',d:'Drag the lidi around and skewer <b>5 pieces of daging</b>. Avoid chilli, onion, banana &amp; carrot — they cost you time!'},
+{n:'Elak Halangan',e:'🛵',d:'Drag (or use ← →) to slide. Collect <b>8 sate</b> and dodge rocks, cones &amp; barrels. You have 3 lives!'},
+{n:'Bakar &amp; Flip',e:'🔥',d:'Drag across a sate to flip it. Flip when the bar is in the <b>green zone</b> — 3 good flips each. Don\'t let it burn!'}];
+function intro(i){lvl=i;mode='menu';const l=LV[i];screen(`<div class=card><small>CHECKPOINT ${i+1} OF 3</small><div class=em>${l.e}</div><h2>${l.n}</h2><p>${l.d}</p><button onclick="start(${i})">Go!</button></div>`)}
+function start(i){hide();lvl=i;parts=[];fl=[];T=0;G={drag:-1};[init1,init2,init3][i]();mode='play'}
+function win(){mode='wait';burst(W/2,H/2,70,'#ffc83d',320);setTimeout(()=>travel(lvl),900)}
+function lose(m){mode='wait';setTimeout(()=>screen(`<div class=card><div class=em>😵</div><h2>${m}</h2><button onclick="start(${lvl})">Cuba Lagi</button></div>`),500)}
+/* LEVEL 1 – cucuk */
+function mk1(m){return{e:m?'🥩':['🌶️','🧅','🍌','🥕'][Math.random()*4|0],m,x:R(40,380),y:R(120,560),vx:R(-70,70),vy:R(-70,70),p:R(0,6)}}
+function init1(){G.got=0;G.time=30;G.tip={x:W/2,y:480};G.it=[];for(let i=0;i<9;i++)G.it.push(mk1(i<4))}
+function up1(dt){G.time-=dt;const t=G.tip;t.x=L(t.x,ptr.x,.3);t.y=L(t.y,Math.max(110,Math.min(600,ptr.y)),.3);
+for(const i of G.it){i.x+=i.vx*dt;i.y+=i.vy*dt;if(i.x<30||i.x>390)i.vx*=-1;if(i.y<110||i.y>580)i.vy*=-1;
+if(Math.hypot(i.x-t.x,i.y-t.y)<36){if(i.m){G.got++;burst(i.x,i.y,18,'#ff6b2c');ft('+1 Daging!',i.x,i.y,'#ffc83d')}else{G.got=Math.max(0,G.got-1);G.time-=2;shake=12;burst(i.x,i.y,14,'#ff4757');ft('-2s Oops!',i.x,i.y,'#ff4757')}Object.assign(i,mk1(G.it.filter(q=>q.m).length<4))}}
+if(G.got>=5)win();else if(G.time<=0)lose('Masa tamat!')}
+function dr1(){bg('#5b3a22','#2d1a0d');x.strokeStyle='rgba(0,0,0,.2)';x.lineWidth=2;for(let i=0;i<7;i++){x.beginPath();x.moveTo(i*70,0);x.lineTo(i*70,H);x.stroke()}
+for(const i of G.it){const b=Math.sin(T*3+i.p)*3;x.fillStyle=i.m?'rgba(255,200,61,.25)':'rgba(255,255,255,.08)';x.beginPath();x.arc(i.x,i.y+b,30,0,7);x.fill();em(i.e,i.x,i.y+b,40,Math.sin(T*2+i.p)*.2)}
+const t=G.tip,l=Math.hypot(.12,1),dx=.12/l,dy=1/l;x.strokeStyle='#e8c98a';x.lineWidth=5;x.lineCap='round';x.beginPath();x.moveTo(t.x,t.y);x.lineTo(t.x+dx*340,t.y+dy*340);x.stroke();
+x.fillStyle='#fff';x.beginPath();x.arc(t.x,t.y,5,0,7);x.fill();
+for(let k=0;k<G.got;k++)em('🥩',t.x+dx*(46+k*38),t.y+dy*(46+k*38),38,.1);
+hud(`🥩 ${G.got}/5   ⏱ ${Math.max(0,Math.ceil(G.time))}s`);if(T<4)tx('Drag the lidi to the daging!',W/2,H-40,16,'#ffc83d')}
+/* LEVEL 2 – elak */
+function init2(){G.sc=0;G.lv=3;G.px=G.tx=W/2;G.o=[];G.sp=0;G.inv=0;G.spd=230;G.road=0}
+function up2(dt){if(K.ArrowLeft)G.tx-=420*dt;if(K.ArrowRight)G.tx+=420*dt;if(ptr.down)G.tx=ptr.x;G.tx=Math.max(40,Math.min(380,G.tx));G.px=L(G.px,G.tx,.2);G.inv-=dt;G.spd+=5*dt;G.road=(G.road+G.spd*dt)%80;G.sp-=dt;
+if(G.sp<0){G.sp=R(.35,.6);const s=Math.random()<.45;G.o.push({x:R(45,375),y:-30,s,e:s?'🍢':['🪨','🚧','🛢️'][Math.random()*3|0]})}
+for(const o of G.o){o.y+=G.spd*dt;if(!o.d&&Math.hypot(o.x-G.px,o.y-(H-130))<36){o.d=1;if(o.s){G.sc++;burst(o.x,o.y,16,'#ffc83d');ft('+1 Sate!',o.x,o.y-20,'#ffc83d')}else if(G.inv<=0){G.lv--;G.inv=1.2;shake=14;burst(o.x,o.y,18,'#ff4757');ft('Aduh!',o.x,o.y-20,'#ff4757')}}}
+G.o=G.o.filter(o=>o.y<H+40&&!o.d);if(G.sc>=8)win();else if(G.lv<=0)lose('Eksiden!')}
+function dr2(){bg('#0e1a2b','#1d2430');x.fillStyle='#262a33';x.fillRect(20,0,W-40,H);x.fillStyle='#fff';x.globalAlpha=.5;for(let i=-1;i<10;i++)for(const lx of[140,280])x.fillRect(lx-3,i*80+G.road,6,40);x.globalAlpha=1;
+for(let i=-1;i<10;i++){em('🌴',10,i*80+G.road,34);em('🌴',W-10,i*80+G.road+40,34)}
+for(const o of G.o){x.fillStyle=o.s?'rgba(255,200,61,.3)':'rgba(255,71,87,.25)';x.beginPath();x.arc(o.x,o.y,28,0,7);x.fill();em(o.e,o.x,o.y+Math.sin(T*8)*2,38,o.s?Math.sin(T*5)*.3:0)}
+if(G.inv<=0||Math.sin(T*40)>0)em('🛵',G.px,H-130,52,(G.tx-G.px)*.01);
+hud(`🍢 ${G.sc}/8   ${'❤️'.repeat(G.lv)}${'🖤'.repeat(3-G.lv)}`);if(T<4)tx('◀  Drag left / right  ▶',W/2,H-40,16,'#ffc83d')}
+/* LEVEL 3 – bakar */
+function init3(){G.s=[0,1,2].map(i=>({y:250+i*150,h:20-i*12,f:0,fa:0,done:0}));G.burn=0}
+function down3(){G.s.forEach((s,i)=>{if(!s.done&&Math.abs(ptr.y-s.y)<70){G.drag=i;G.dx=ptr.x;G.dy=ptr.y}})}
+function flip(s){s.fa=1;if(s.h>=55){s.f++;burst(W/2,s.y,22,'#ffc83d');ft(s.f>=3?'Siap! ✓':'Perfect!',W/2,s.y-45,'#3ddc84');if(s.f>=3)s.done=1}else ft('Masih mentah!',W/2,s.y-45,'#9fb4d0');s.h=15}
+function up3(dt){let d=0;for(const s of G.s){s.fa=Math.max(0,s.fa-dt*3);if(s.done){d++;continue}s.h+=dt*(17+T*.15);
+if(s.h>85&&Math.random()<.4)parts.push({x:W/2+R(-100,100),y:s.y-20,vx:R(-10,10),vy:-60,g:-20,l:.8,c:'rgba(190,190,190,.6)',s:R(5,9)});
+if(s.h>=100){G.burn++;s.h=30;shake=16;burst(W/2,s.y,20,'#333');ft('HANGUS!',W/2,s.y-45,'#ff4757')}}
+if(G.drag>=0&&ptr.down&&Math.hypot(ptr.x-G.dx,ptr.y-G.dy)>30){flip(G.s[G.drag]);G.drag=-1}
+if(d==3)win();else if(G.burn>=3)lose('Terlalu banyak hangus!')}
+const mx=(a,b,k)=>a.map((v,i)=>Math.round(L(v,b[i],k))),CO=[[242,160,160],[200,121,58],[107,52,20],[22,16,8]];
+function col(h){h=Math.max(0,h);const c=h<55?mx(CO[0],CO[1],h/55):h<85?mx(CO[1],CO[2],(h-55)/30):mx(CO[2],CO[3],Math.min(1,(h-85)/15));return`rgb(${c})`}
+function dr3(){bg('#2a0f08','#0d0504');const g=x.createLinearGradient(0,H-160,0,H);g.addColorStop(0,'rgba(255,90,20,0)');g.addColorStop(1,'rgba(255,90,20,.55)');x.fillStyle=g;x.fillRect(0,H-160,W,160);
+x.strokeStyle='#4a4a4a';x.lineWidth=4;for(let y=110;y<H;y+=24){x.beginPath();x.moveTo(0,y);x.lineTo(W,y);x.stroke()}
+if(Math.random()<.5)parts.push({x:R(0,W),y:H,vx:R(-20,20),vy:R(-160,-60),g:0,l:R(.8,1.6),c:'#ff8a3d',s:R(1.5,3)});
+for(const s of G.s){x.save();x.translate(W/2,s.y);x.scale(1,Math.cos((1-s.fa)*6.283));x.strokeStyle='#e8c98a';x.lineWidth=5;x.beginPath();x.moveTo(-160,0);x.lineTo(160,0);x.stroke();
+x.fillStyle=s.done?'#b2601f':col(s.h);if(s.done){x.shadowColor='#ffc83d';x.shadowBlur=22}
+for(let k=0;k<4;k++){x.beginPath();x.roundRect(-110+k*58,-22,50,44,12);x.fill()}x.restore();
+const by=s.y+46,bx=100,w=200,k=Math.max(0,Math.min(1,s.h/100));
+x.fillStyle='#6b7a8f';x.fillRect(bx,by,w*.55,14);x.fillStyle='#3ddc84';x.fillRect(bx+w*.55,by,w*.3,14);x.fillStyle='#ff4757';x.fillRect(bx+w*.85,by,w*.15,14);
+x.fillStyle='rgba(0,0,0,.6)';x.fillRect(bx+w*k,by,w*(1-k),14);x.fillStyle='#fff';x.beginPath();x.moveTo(bx+w*k,by-3);x.lineTo(bx+w*k-6,by-12);x.lineTo(bx+w*k+6,by-12);x.fill();
+tx(s.done?'SIAP!':s.h<55?'MENTAH':s.h<85?'FLIP SEKARANG!':'HANGUS!',W/2,by+27,11,s.h>=55&&s.h<85&&!s.done?'#3ddc84':'#fff3dc');
+for(let i=0;i<3;i++){x.fillStyle=i<s.f?'#ffc83d':'rgba(255,255,255,.2)';x.beginPath();x.arc(335+i*20,by+7,6,0,7);x.fill()}}
+hud(`🍢 ${G.s.filter(s=>s.done).length}/3   🔥 Hangus ${G.burn}/3`);if(T<4)tx('Drag across a sate to flip it',W/2,H-30,16,'#ffc83d')}
+/* menu bg */
+function dr0(){bg('#3a1d10','#120a06');for(let i=0;i<8;i++)em('🍢',(i*97+T*20)%460-20,(i*131)%H+Math.sin(T+i)*20,30+i%3*14,Math.sin(T+i)*.4)}
+/* map journey */
+function travel(i){mode='menu';const seg=n=>{const a=PT[n],b=PT[n+1];return`M${a} Q${(a[0]+b[0])/2+(n%2?-80:80)},${(a[1]+b[1])/2} ${b}`};
+let s='<svg viewBox="0 0 420 720"><rect width="420" height="720" fill="#173226"/><circle cx="60" cy="150" r="90" fill="#1f4636"/><circle cx="360" cy="620" r="110" fill="#1f4636"/><path d="M0 420 Q210 360 420 440" stroke="#2c6a8a" stroke-width="26" fill="none" opacity=".5"/><text x="210" y="40" fill="#ffc83d" font-family="DM Serif Display" font-size="26" text-anchor="middle">Peta Perjalanan</text>';
+for(let n=0;n<3;n++)s+=`<path d="${seg(n)}" stroke="#d9c9a8" stroke-width="5" stroke-dasharray="4 10" fill="none" stroke-linecap="round"/><path id="h${n}" d="${seg(n)}" stroke="#ff6b2c" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+PT.forEach((p,n)=>{const r=p[0]<210;s+=`<circle id="n${n}" cx="${p[0]}" cy="${p[1]}" r="11" fill="${n<=i?'#ffc83d':'#555'}" stroke="#fff" stroke-width="3"/><text x="${p[0]+(r?18:-18)}" y="${p[1]+5}" fill="#fff3dc" font-family="Montserrat" font-weight="800" font-size="13" text-anchor="${r?'start':'end'}">${NAMES[n]}</text>`});
+s+='<text id="car" font-size="34" text-anchor="middle" dominant-baseline="central">🚗</text></svg>';
+screen(`<div class=mw>${s}<div class=bn id=bn>🚗 Driving to ${NAMES[i+1]}...</div></div>`,'map');
+const sg=n=>$('h'+n),car=$('car');for(let n=0;n<3;n++){const l=sg(n).getTotalLength();sg(n).style.strokeDasharray=l;sg(n).style.strokeDashoffset=n<i?0:l}
+const p=sg(i),len=p.getTotalLength(),t0=performance.now(),D=2800;
+(function f(now){let k=Math.min(1,(now-t0)/D);const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,a=p.getPointAtLength(e*len),b=p.getPointAtLength(Math.min(len,e*len+2));
+car.setAttribute('transform',`translate(${a.x},${a.y}) scale(${b.x>a.x?-1:1},1)`);p.style.strokeDashoffset=len*(1-e);
+if(k<1)return requestAnimationFrame(f);
+$('n'+(i+1)).setAttribute('fill','#ffc83d');$('n'+(i+1)).setAttribute('r',16);
+$('bn').innerHTML=i<2?`✅ Checkpoint ${i+1} cleared!<br><button onclick="intro(${i+1})">Next Checkpoint</button>`:`🏁 Sampai!<br><button onclick="final()">Teruskan</button>`;
+})(t0)}
+function final(){mode='menu';screen(`<div class=card><div class=em>🍢</div><h1>You have arrived!</h1><p>Welcome to <b>Sate Kajang Haji Samuri</b>.<br>Please enjoy the sate! 😋</p><p class=s>Sate Kajang is famous for big, juicy meat chunks and thick peanut sauce — a true taste of Selangor.</p><button onclick="title()">Main Lagi</button></div>`);
+cf=setInterval(()=>burst(R(40,380),R(100,400),24,['#ffc83d','#ff6b2c','#3ddc84'][Math.random()*3|0],260),350)}
+/* main loop */
+const U=[up1,up2,up3],D=[dr1,dr2,dr3];
+function loop(ts){requestAnimationFrame(loop);const dt=Math.min(.05,(ts-last)/1000||0);last=ts;T+=dt;if(mode=='play')U[lvl](dt);
+parts=parts.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.g??300)*dt;return(p.l-=dt)>0});fl=fl.filter(f=>{f.y-=50*dt;return(f.l-=dt)>0});
+x.save();if(shake){x.translate(R(-1,1)*shake,R(-1,1)*shake);shake*=.88;if(shake<.5)shake=0}
+(mode=='menu'?dr0:D[lvl])();
+for(const p of parts){x.globalAlpha=Math.min(1,p.l*2);x.fillStyle=p.c;x.beginPath();x.arc(p.x,p.y,p.s,0,7);x.fill()}
+for(const f of fl){x.globalAlpha=Math.min(1,f.l*1.5);tx(f.s,f.x,f.y,20,f.c)}x.globalAlpha=1;x.restore()}
+requestAnimationFrame(loop);title();
+</script></body></html>
